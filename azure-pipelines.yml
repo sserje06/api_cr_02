@@ -109,8 +109,8 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          $time_validation = New-TimeSpan -Minutes $(time_validation)
-          $time_secuency = New-TimeSpan -Seconds $(time_secuency)
+          $time_validation = New-TimeSpan -Minutes $(var_time_validation)
+          $time_secuency = New-TimeSpan -Seconds $(var_time_secuency)
           
           $timeOut=(Get-Date).Add($time_validation)
           do
