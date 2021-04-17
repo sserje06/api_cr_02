@@ -48,7 +48,7 @@ stages:
     displayName: Creating Environments
     strategy:
       matrix: $[dependencies.createEnvironments.outputs['matrix_deployment.environments']]
-      maxParallel: 2
+      maxParallel: 1
     pool:
       vmImage: ubuntu-18.04
     steps:
@@ -180,7 +180,7 @@ stages:
               "definition": {
                 "id": $(build_release_definition_id)
               },
-              "sourceBranch": $(build_release_pipeline_branch)
+              "sourceBranch": "$(build_release_pipeline_branch)"
             }
             "@
             $contentType = 'application/json'
