@@ -79,7 +79,7 @@ stages:
         ArtifactName: 'drop'
         publishLocation: 'Container'
     - task: PowerShell@2
-      condition: and(succeeded(), eq(variables[environments],'DEV'), eq('${{ parameters.buildApi01 }}', true))
+      condition: and(succeeded(), eq(variables['var_environments'],'DEV'), eq('${{ parameters.buildApi01 }}', true))
       displayName: Run API 01
       inputs:
         targetType: 'inline'
@@ -104,7 +104,7 @@ stages:
       env:
         SYSTEM_ACCESSTOKEN: $(System.AccessToken)
     - task: PowerShell@2
-      condition: and(succeeded(), eq(variables[environments],'DEV'), eq('${{ parameters.buildApi01 }}', true))
+      condition: and(succeeded(), eq(variables['var_environments'],'DEV'), eq('${{ parameters.buildApi01 }}', true))
       displayName: Waiting for build pipeline API 01
       inputs:
         targetType: 'inline'
