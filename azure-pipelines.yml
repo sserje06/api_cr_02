@@ -6,14 +6,187 @@
 trigger:
 - main
 
-pool:
-  vmImage: ubuntu-latest
+variables:
+- group: build_variables
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+parameters:
+  - name: buildApi01
+    displayName: Build API 01
+    type: boolean
+    default: False
+  - name: generateRelease
+    displayName: Generate Release Version?
+    default: No
+    values:
+      - Yes
+      - No
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+stages:
+- stage: Build
+  jobs:
+  - job: createEnvironments
+    steps:
+    - task: PowerShell@2
+      displayName: Generate Environments
+      inputs:
+        targetType: 'inline'
+        script: |
+          $newArray=[ordered] @{}
+          $environments = "${env:VAR_ENVIRONMENTS}"
+          $getArray = $environments.split(",")
+
+          foreach ($i in $getArray){
+              $newArray += @{
+                  $i = @{"var_environments"=$i}
+              }
+          }
+          $convertArrayToJson = $newArray | convertTo-json -Compress
+          echo "##vso[task.setVariable variable=environments;isOutput=true]$convertArrayToJson"
+      name: matrix_deployment 
+  - job: Build
+    dependsOn: createEnvironments
+    displayName: Creating Environments
+    strategy:
+      matrix: $[dependencies.createEnvironments.outputs['matrix_deployment.environments']]
+      maxParallel: 1
+    pool:
+      vmImage: ubuntu-18.04
+    steps:
+    - checkout: self
+    - task: PowerShell@2
+      inputs:
+        targetType: 'inline'
+        script: |
+          $sourceBranch = "$(Build.SourceBranch)"
+          $result=$sourceBranch.Substring(24 -13)
+          echo "##vso[task.setVariable variable=SOURCEBRANCH_NAME;]$result"
+    - task: DotNetCoreCLI@2
+      displayName: Restore Nuget Package
+      inputs:
+        command: 'restore'
+        projects: '**/*.csproj'
+        feedsToUse: 'select'
+    - task: DotNetCoreCLI@2
+      displayName: Build Application
+      inputs:
+        command: 'build'
+        projects: '**/*.csproj'
+        feedsToUse: 'select'
+    - task: PublishBuildArtifacts@1
+      displayName: Create Artifact
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+    - task: PowerShell@2
+      condition: and(succeeded(), eq(variables[environments],'DEV'), eq('${{ parameters.buildApi01 }}', true))
+      displayName: Run API 01
+      inputs:
+        targetType: 'inline'
+        script: |
+          $body = "@
+          {
+            "definition":{
+              "id": $(build_definition_id_01)
+            },
+            "sourceBranch": "$(sourceBranch)"
+          }
+          "@
+          
+          $contentType = 'application/json'
+          $url = "https://dev.azure.com/azureDevOpsLaboratory/Azureworshop/_apis/build/builds?api-version=6.1-preview.6"
+          $executeCommand= Invoke-RestMethod -Uri $url -Method POST -Body $body -ContenType $contentType -Headers @{
+            Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"
+          }
+          
+          $getBuildId=$executeCommand.id
+          echo "##vso[task.setVariable variable=BUILD_ID_01;]$getBuildId"
+      env:
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+    - task: PowerShell@2
+      condition: and(succeeded(), eq(variables[environments],'DEV'), eq('${{ parameters.buildApi01 }}', true))
+      displayName: Waiting for build pipeline API 01
+      inputs:
+        targetType: 'inline'
+        script: |
+          $time_validation = New-TimeSpan -Minutes $(time_validation)
+          $time_secuency = New-TimeSpan -Seconds $(time_secuency)
+          
+          $timeOut=(Get-Date).Add($time_validation)
+          do
+          {
+            $url = https://dev.azure.com/azureDevOpsLaboratory/Azureworshop/_apis/build/builds/$(BUILD_ID_01)?api-version=6.1-preview.6"
+            echo $url
+              $result = Invoke-RestMethod -Uri $url -Headers @{
+                Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"
+              }
+            Write-Host "Waiting for build pipeline complete"
+            Start-Sleep -Seconds time_secuency.Seconds
+          }
+          while (($result.status -ne "completed") -and ((Get-Date) -lt $timeOut))
+          
+          if( ($result.status -eq "completed") -and ($result.result -eq "succeeded") ){
+            break
+          } else {
+            Write-Host "Something is wrong with the build pipeline result"
+            exit 1
+          }
+      env:
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+- stage: ApiRelease
+  condition: and(succeeded(), eq( '${{ parameters.generateRelease }}', 'Yes'))
+  dependsOn: Build
+  jobs:
+  - job: CreateRelease
+    steps:
+      - task: PowerShell@2
+        inputs:
+          targetType: 'inline'
+          script: |
+            $sourceBranch = "$(Build.SourceBranch)"
+            $result=$sourceBranch.Substring(24 -13)
+            echo "##vso[task.setVariable variable=SOURCEBRANCH_NAME;]$result"
+      - task: PowerShell@2
+        displayName: Update Cross Branch
+        inputs:
+          targetType: 'inline'
+          script: |
+            $body = "@
+            {
+              "variables": {
+                "switch_branch": {
+                  "value": "$(SOURCEBRANCH_NAME)"
+                }
+              },
+              "type": "Vsts",
+              "name": "release_variables",
+              "description": "Release Variables"
+            }
+            "@
+            $contentType = 'application/json'
+            $url = "https://dev.azure.com/azureDevOpsLaboratory/Azureworshop/_apis/distributedtask/variablegroups/$(var_group_id_release_branch)?api-version=6.0-preview.2"
+            $executeCommand= Invoke-RestMethod -Uri $url -Method PUT -Body $body -ContenType $contentType -Headers @{
+              Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"
+            }
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      - task: PowerShell@2
+        displayName: Run Build Release Pipiline
+        inputs:
+          targetType: 'inline'
+          script: |
+            $body = "@
+            {
+              "definition": {
+                "id": $(build_release_definition_id)
+              },
+              "sourceBranch": $(build_release_pipeline_branch)
+            }
+            "@
+            $contentType = 'application/json'
+            $url = "https://dev.azure.com/azureDevOpsLaboratory/Azureworshop/_apis/distributedtask/variablegroups/$(var_group_id_release_branch)?api-version=6.0-preview.2"
+            $executeCommand= Invoke-RestMethod -Uri $url -Method POST -Body $body -ContenType $contentType -Headers @{
+              Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"
+            }
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
