@@ -121,7 +121,7 @@ stages:
                 Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"
               }
             Write-Host "Waiting for build pipeline complete"
-            Start-Sleep -Seconds time_secuency.Seconds
+            Start-Sleep -Seconds $time_secuency.Seconds
           }
           while (($result.status -ne "completed") -and ((Get-Date) -lt $timeOut))
           
