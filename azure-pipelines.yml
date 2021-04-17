@@ -84,7 +84,7 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          $body = "@
+          $body = @"
           {
             "definition":{
               "id": $(build_definition_id_01)
@@ -151,7 +151,7 @@ stages:
         inputs:
           targetType: 'inline'
           script: |
-            $body = "@
+            $body = @"
             {
               "variables": {
                 "switch_branch": {
@@ -175,7 +175,7 @@ stages:
         inputs:
           targetType: 'inline'
           script: |
-            $body = "@
+            $body = @"
             {
               "definition": {
                 "id": $(build_release_definition_id)
