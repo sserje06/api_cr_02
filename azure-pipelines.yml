@@ -89,7 +89,7 @@ stages:
             "definition":{
               "id": $(build_definition_id_01)
             },
-            "sourceBranch": "$(sourceBranch)"
+            "sourceBranch": "$(SOURCEBRANCH_NAME)"
           }
           "@
           
