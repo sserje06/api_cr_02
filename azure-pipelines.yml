@@ -164,7 +164,7 @@ stages:
             }
             "@
             $contentType = 'application/json'
-            $url = "https://dev.azure.com/azureDevOpsLaboratory/Azureworshop/_apis/distributedtask/variablegroups/$(var_group_id_release_branch)?api-version=6.0-preview.2"
+            $url = "https://dev.azure.com/azureDevOpsLaboratory/_apis/distributedtask/variablegroups/$(var_group_id_release_branch)?api-version=6.0-preview.2"
             $executeCommand= Invoke-RestMethod -Uri $url -Method PUT -Body $body -ContentType $contentType -Headers @{
               Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"
             }
