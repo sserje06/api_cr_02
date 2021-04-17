@@ -115,7 +115,7 @@ stages:
           $timeOut=(Get-Date).Add($time_validation)
           do
           {
-            $url = https://dev.azure.com/azureDevOpsLaboratory/Azureworshop/_apis/build/builds/$(BUILD_ID_01)?api-version=6.1-preview.6"
+            $url = "https://dev.azure.com/azureDevOpsLaboratory/Azureworshop/_apis/build/builds/$(BUILD_ID_01)?api-version=6.1-preview.6"
             echo $url
               $result = Invoke-RestMethod -Uri $url -Headers @{
                 Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"
